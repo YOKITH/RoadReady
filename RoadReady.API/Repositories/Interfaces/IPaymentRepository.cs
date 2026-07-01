@@ -20,5 +20,11 @@ namespace RoadReady.API.Repositories.Interfaces
         Task<bool> SaveChangesAsync();
 
         Task<PagedResponse<Payment>> GetPagedPaymentsAsync(PaginationParams paginationParams);
+
+
+
+        Task<Payment?> GetPaymentByReservationIdAsync(int reservationId);
+
+        Task<Payment?> GetPaymentByRazorpayPaymentIdAsync(string razorpayPaymentId);
     }
 }

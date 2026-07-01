@@ -110,6 +110,7 @@ namespace RoadReady.API.Services
                         Comment = reviewDto.Comment,
                         CreatedAt = DateTime.UtcNow
                     };
+                car.Reviews.Add(review);
 
                 await _reviewRepository.AddReviewAsync(review);
 

@@ -8,7 +8,13 @@ namespace RoadReady.API.Services.Interfaces
 
         string GenerateAccessToken(Models.User user);
 
-        Task LogoutAsync();
+        string GenerateRefreshToken();
+
+        Task<AuthResponseDto?> RefreshTokenAsync(
+            RefreshTokenDto refreshTokenDto);
+
+        Task RevokeRefreshTokenAsync(string refreshToken);
+
 
     }
 }

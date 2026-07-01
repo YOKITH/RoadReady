@@ -19,11 +19,15 @@ namespace RoadReady.API.Data
 
         public DbSet<Car> Cars { get; set; }
 
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+
         public DbSet<Reservation> Reservations { get; set; }
 
         public DbSet<Payment> Payments { get; set; }
 
         public DbSet<Review> Reviews { get; set; }
+
+        public DbSet<MaintenanceReport> MaintenanceReports { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -67,6 +71,13 @@ namespace RoadReady.API.Data
             modelBuilder.Entity<Review>().HasOne(r => r.Car)
                 .WithMany(c => c.Reviews)
                 .HasForeignKey(r => r.CarId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Refresh Token -> User
+            modelBuilder.Entity<RefreshToken>()
+                .HasOne(rt => rt.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

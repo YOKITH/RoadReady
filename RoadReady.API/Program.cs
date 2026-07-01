@@ -1,204 +1,81 @@
-using System.Text;
-using System.Text.Json.Serialization;
-using AutoMapper;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using RoadReady.API.Data;
-using RoadReady.API.Mappings;
-using RoadReady.API.Middleware;
-using RoadReady.API.Repositories;
-using RoadReady.API.Repositories.Implementations;
-using RoadReady.API.Repositories.Interfaces;
-using RoadReady.API.Services;
-using RoadReady.API.Services.Interfaces;
-using RoadReady.API.Validators;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add DbContext
+builder.Services.AddDbContext<RoadReadyDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+// Add Controllers
+builder.Services.AddControllers();
 
+// Add OpenApi
+builder.Services.AddOpenApi();
 
-
-
-var mapperConfig = new MapperConfiguration(cfg =>
+// Configure CORS
+builder.Services.AddCors(options =>
 {
-    cfg.AddProfile<MappingProfile>();
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 
-mapperConfig.AssertConfigurationIsValid();
-
-builder.Services.AddSingleton(mapperConfig.CreateMapper());
-
-
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler =
-            ReferenceHandler.IgnoreCycles;
-    });
-
-builder.Services.AddFluentValidationAutoValidation();
-
-builder.Services.AddValidatorsFromAssemblyContaining<RegisterDtoValidator>();
-
-
-
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-
-builder.Services.AddScoped<ICarRepository, CarRepository>();
-
-builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
-
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
-
-builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
-
-builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
-
-builder.Services.AddScoped<IReportRepository, ReportRepository>();
-
-
-
-
-
-builder.Services.AddScoped<IUserService, UserService>();
-
-builder.Services.AddScoped<ITokenService, TokenService>();
-
-builder.Services.AddScoped<ICarService, CarService>();
-
-builder.Services.AddScoped<IReservationService, ReservationService>();
-
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-
-builder.Services.AddScoped<IReviewService, ReviewService>();
-
-builder.Services.AddScoped<IDashboardService, DashboardService>();
-
-builder.Services.AddScoped<IReportService, ReportService>();
+// Configure JWT Authentication
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "RoadReady_Super_Secret_JWT_Key_2026_For_Hexaware_Assignment_Must_Be_Long_Enough";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RoadReadyAPI";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RoadReadyClient";
 
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme =
-        JwtBearerDefaults.AuthenticationScheme;
-
-    options.DefaultChallengeScheme =
-        JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
-
-    options.SaveToken = true;
-
-    options.TokenValidationParameters =
-        new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-
-            ValidIssuer =
-                builder.Configuration["Jwt:Issuer"],
-
-            ValidAudience =
-                builder.Configuration["Jwt:Audience"],
-
-            IssuerSigningKey =
-                new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(
-                        builder.Configuration["Jwt:Key"]!))
-        };
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ClockSkew = TimeSpan.Zero
+    };
 });
-
-builder.Services.AddAuthorization();
-
-
-
-
-
-builder.Services.AddAuthorization();
-
-
-#region Swagger
-
-builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc(
-        "v1",
-        new OpenApiInfo
-        {
-            Title = "RoadReady API",
-            Version = "v1",
-            Description = "Car Rental Management System API"
-        });
-
-    options.AddSecurityDefinition(
-        "Bearer",
-        new OpenApiSecurityScheme
-        {
-            Name = "Authorization",
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "JWT",
-            In = ParameterLocation.Header,
-            Description =
-                "Enter JWT Token.\n\nExample:\nBearer eyJhbGciOiJIUzI1NiIs..."
-        });
-
-    options.AddSecurityRequirement(
-        new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference =
-                        new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                },
-                Array.Empty<string>()
-            }
-        });
-});
-
-#endregion
 
 var app = builder.Build();
 
-#region Middleware Pipeline
+// Auto-migrate or create SQLite database on start
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<RoadReadyDbContext>();
+    db.Database.EnsureCreated(); // Creates local sqlite DB using model definitions & seeds data automatically
+}
 
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-
-    app.UseSwaggerUI();
+    app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
 
-
-app.UseMiddleware<ExceptionMiddleware>();
+// Enable CORS before Authentication and Authorization
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
-
 app.UseAuthorization();
 
 app.MapControllers();
-
-#endregion
 
 app.Run();

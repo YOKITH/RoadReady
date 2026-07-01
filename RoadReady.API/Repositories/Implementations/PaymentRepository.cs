@@ -76,5 +76,24 @@ namespace RoadReady.API.Repositories
                 TotalPages =(int)Math.Ceiling(totalRecords /(double)paginationParams.PageSize)
             };
         }
+
+
+        public async Task<Payment?> GetPaymentByReservationIdAsync(int reservationId)
+        {
+            return await _context.Payments
+                .Include(p => p.User)
+                .Include(p => p.Reservation)
+                .FirstOrDefaultAsync(p => p.ReservationId == reservationId);
+        }
+
+        public async Task<Payment?> GetPaymentByRazorpayPaymentIdAsync(string razorpayPaymentId)
+        {
+            return await _context.Payments
+                .Include(p => p.User)
+                .Include(p => p.Reservation)
+                .FirstOrDefaultAsync(p => p.RazorpayPaymentId == razorpayPaymentId);
+        }
+
+
     }
 }

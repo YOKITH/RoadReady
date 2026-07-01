@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace RoadReady.API.Models
@@ -6,32 +7,29 @@ namespace RoadReady.API.Models
     public class Payment
     {
         [Key]
-        public int PaymentId { get; set; }
-
-        [Required]
-        public int UserId { get; set; }
+        public int Id { get; set; }
 
         [Required]
         public int ReservationId { get; set; }
 
+        [ForeignKey("ReservationId")]
+        public Reservation? Reservation { get; set; }
+
         [Required]
         public decimal Amount { get; set; }
 
-        [Required]
-        [StringLength(50)]
-            public string PaymentMethod { get; set; } = string.Empty;
-
-        [Required]
-        [StringLength(50)]
-        public string PaymentStatus { get; set; } = "Pending";
-        // Pending, Success, Failed
-
         public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
 
-        [ForeignKey(nameof(UserId))]
-        public User User { get; set; } = null!;
+        [Required]
+        [MaxLength(30)]
+        public string PaymentMethod { get; set; } = "CreditCard"; // CreditCard, PayPal, UPI
 
-        [ForeignKey(nameof(ReservationId))]
-        public Reservation Reservation { get; set; } = null!;
+        [Required]
+        [MaxLength(20)]
+        public string Status { get; set; } = "Pending"; // Pending, Success, Failed
+
+        [Required]
+        [MaxLength(100)]
+        public string TransactionId { get; set; } = string.Empty;
     }
 }
